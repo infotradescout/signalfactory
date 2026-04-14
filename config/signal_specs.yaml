@@ -1,0 +1,175 @@
+# SignalFactory signal packs.
+# Each signal pack defines one lane-oriented evidence stream for LISA.
+
+signal_specs:
+  gdp_growth:
+    label: "GDP Growth Signal"
+    lane: macro
+    signal_kind: macro_indicator
+    type: regression
+    output_unit: "% YoY"
+    features:
+      economic: [inflation, unemployment, interest_rate, trade_balance, m2_money_supply]
+      social: [population_growth, education_index, government_stability]
+      market: [stock_index_return, commodity_prices]
+    countries: [US, CN, DE, GB, JP, IN, BR]
+    date_range:
+      start: "2000-01-01"
+      end: "today"
+    model: gradient_boosting
+    consumer: LISA
+  inflation_forecast:
+    label: "Inflation Pressure Signal"
+    lane: macro
+    signal_kind: forecast_support
+    type: forecast
+    output_unit: "%"
+    features:
+      economic: [m2_money_supply, interest_rate, unemployment, oil_price, ppi]
+      market: [commodity_prices, exchange_rate]
+    countries: [US]
+    date_range:
+      start: "1990-01-01"
+      end: "today"
+    model: arima
+    forecast_horizon: 12
+    consumer: LISA
+  market_trend:
+    label: "Market Trend Signal"
+    lane: market
+    signal_kind: directional_readout
+    type: classification
+    classes: [up, flat, down]
+    output_unit: "probability per class"
+    features:
+      economic: [gdp_growth, inflation, interest_rate, unemployment, consumer_confidence]
+      market: [pe_ratio, earnings_growth, volatility_index]
+      social: [news_sentiment]
+    countries: [US]
+    date_range:
+      start: "2000-01-01"
+      end: "today"
+    model: random_forest
+    consumer: LISA
+  election_outcome:
+    label: "Election Outcome Signal"
+    lane: community
+    signal_kind: political_risk_signal
+    type: classification
+    classes: [incumbent_wins, challenger_wins]
+    output_unit: "probability"
+    features:
+      economic: [gdp_growth, unemployment, inflation, disposable_income_growth]
+      social: [approval_rating, incumbent_term, polarization_index]
+    countries: [US]
+    date_range:
+      start: "1948-01-01"
+      end: "today"
+    model: logistic_regression
+    consumer: LISA
+  business_viability:
+    label: "Business Viability Signal"
+    lane: business
+    signal_kind: operational_health
+    type: regression
+    output_unit: "score 0-100"
+    features:
+      economic: [gdp_growth, interest_rate, consumer_spending, credit_availability]
+      social: [demographic_trend, urbanization, education_index]
+      market: [sector_growth, competition_index, labor_cost]
+    countries: [US]
+    date_range:
+      start: "2005-01-01"
+      end: "today"
+    model: ensemble
+    consumer: LISA
+  social_unrest_risk:
+    label: "Social Unrest Signal"
+    lane: risk
+    signal_kind: instability_monitor
+    type: classification
+    classes: [low, medium, high]
+    output_unit: "risk tier"
+    features:
+      economic: [unemployment, inflation, inequality_index, poverty_rate]
+      social: [political_rights_index, press_freedom, youth_unemployment, urbanization]
+    countries: [US, CN, DE, GB, BR, IN, RU]
+    date_range:
+      start: "2000-01-01"
+      end: "today"
+    model: gradient_boosting
+    consumer: LISA
+  food_demand_weekly:
+    label: "Food Demand Signal"
+    lane: business
+    signal_kind: demand_forecast_support
+    type: forecast
+    output_unit: "units/week"
+    target_column: food_sales_units
+    features:
+      economic: [food_sales_units, cpi_food, unemployment, disposable_income_growth]
+      social: [holiday_flag, event_flag]
+      market: [promo_spend, fuel_price]
+    countries: [US]
+    date_range:
+      start: "2018-01-01"
+      end: "today"
+    model: arima
+    forecast_horizon: 8
+    consumer: LISA
+  construction_material_cost_direction:
+    label: "Construction Material Cost Signal"
+    lane: infrastructure
+    signal_kind: supply_cost_direction
+    type: classification
+    classes: [down, flat, up]
+    output_unit: "class probability"
+    target_column: material_cost_direction
+    features:
+      economic: [interest_rate, inflation, ppi, exchange_rate]
+      market: [steel_price, lumber_price, cement_price, diesel_price]
+      social: [demand_pressure_index]
+    countries: [US]
+    date_range:
+      start: "2015-01-01"
+      end: "today"
+    model: random_forest
+    consumer: LISA
+  restaurant_failure_risk:
+    label: "Restaurant Failure Risk Signal"
+    lane: risk
+    signal_kind: operational_risk
+    type: classification
+    classes: [low, medium, high]
+    output_unit: "risk tier"
+    target_column: failure_risk_class
+    features:
+      economic: [rent_to_revenue_ratio, food_cost_ratio, labor_cost_ratio]
+      social: [local_population_growth, review_score, foot_traffic_index]
+      market: [competition_density, nearby_openings_12m]
+    countries: [US]
+    date_range:
+      start: "2017-01-01"
+      end: "today"
+    model: gradient_boosting
+    consumer: LISA
+  construction_project_delay_risk:
+    label: "Construction Delay Risk Signal"
+    lane: infrastructure
+    signal_kind: schedule_risk
+    type: classification
+    classes: [on_time, minor_delay, major_delay]
+    output_unit: "delay class probability"
+    target_column: delay_risk_class
+    features:
+      economic: [material_cost_change_pct, labor_shortage_index, interest_rate]
+      social: [permit_delay_days, weather_disruption_days]
+      market: [subcontractor_availability, backlog_index]
+    countries: [US]
+    date_range:
+      start: "2016-01-01"
+      end: "today"
+    model: random_forest
+    consumer: LISA
+
+active_signal_pack: food_demand_weekly

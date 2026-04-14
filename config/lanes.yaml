@@ -1,0 +1,141 @@
+# Lane rules for LISA packet preparation.
+
+default_lane: opportunity
+
+lanes:
+  macro:
+    allowed_source_types: [world_bank, fred, model_output]
+    recency_half_life_hours: 168
+    retention_decay_hours: 336
+    scoring_weights:
+      truth: 0.30
+      novelty: 0.15
+      recency: 0.15
+      relevance: 0.25
+      corroboration: 0.10
+      contradiction: 0.05
+    contradiction_rules:
+      stronger_source_wins: true
+      require_manual_review_above: 0.45
+    aggregation:
+      max_signals_per_packet: 25
+      packet_priority_metric: overall_score
+  market:
+    allowed_source_types: [fred, model_output, web_scraper]
+    recency_half_life_hours: 24
+    retention_decay_hours: 72
+    scoring_weights:
+      truth: 0.24
+      novelty: 0.18
+      recency: 0.20
+      relevance: 0.24
+      corroboration: 0.09
+      contradiction: 0.05
+    contradiction_rules:
+      stronger_source_wins: true
+      require_manual_review_above: 0.35
+    aggregation:
+      max_signals_per_packet: 20
+      packet_priority_metric: overall_score
+  business:
+    allowed_source_types: [csv, database, model_output]
+    recency_half_life_hours: 72
+    retention_decay_hours: 168
+    scoring_weights:
+      truth: 0.27
+      novelty: 0.17
+      recency: 0.16
+      relevance: 0.25
+      corroboration: 0.10
+      contradiction: 0.05
+    contradiction_rules:
+      stronger_source_wins: false
+      require_manual_review_above: 0.30
+    aggregation:
+      max_signals_per_packet: 20
+      packet_priority_metric: overall_score
+  community:
+    allowed_source_types: [web_scraper, csv, model_output]
+    recency_half_life_hours: 36
+    retention_decay_hours: 96
+    scoring_weights:
+      truth: 0.22
+      novelty: 0.18
+      recency: 0.19
+      relevance: 0.24
+      corroboration: 0.10
+      contradiction: 0.07
+    contradiction_rules:
+      stronger_source_wins: false
+      require_manual_review_above: 0.25
+    aggregation:
+      max_signals_per_packet: 15
+      packet_priority_metric: overall_score
+  sentiment:
+    allowed_source_types: [web_scraper, model_output]
+    recency_half_life_hours: 12
+    retention_decay_hours: 48
+    scoring_weights:
+      truth: 0.18
+      novelty: 0.20
+      recency: 0.22
+      relevance: 0.22
+      corroboration: 0.10
+      contradiction: 0.08
+    contradiction_rules:
+      stronger_source_wins: false
+      require_manual_review_above: 0.20
+    aggregation:
+      max_signals_per_packet: 20
+      packet_priority_metric: overall_score
+  opportunity:
+    allowed_source_types: [csv, world_bank, fred, web_scraper, model_output]
+    recency_half_life_hours: 72
+    retention_decay_hours: 144
+    scoring_weights:
+      truth: 0.24
+      novelty: 0.22
+      recency: 0.16
+      relevance: 0.23
+      corroboration: 0.10
+      contradiction: 0.05
+    contradiction_rules:
+      stronger_source_wins: true
+      require_manual_review_above: 0.30
+    aggregation:
+      max_signals_per_packet: 25
+      packet_priority_metric: overall_score
+  risk:
+    allowed_source_types: [world_bank, fred, csv, web_scraper, model_output]
+    recency_half_life_hours: 48
+    retention_decay_hours: 96
+    scoring_weights:
+      truth: 0.28
+      novelty: 0.14
+      recency: 0.18
+      relevance: 0.23
+      corroboration: 0.12
+      contradiction: 0.05
+    contradiction_rules:
+      stronger_source_wins: true
+      require_manual_review_above: 0.25
+    aggregation:
+      max_signals_per_packet: 25
+      packet_priority_metric: overall_score
+  infrastructure:
+    allowed_source_types: [csv, world_bank, fred, model_output]
+    recency_half_life_hours: 96
+    retention_decay_hours: 240
+    scoring_weights:
+      truth: 0.29
+      novelty: 0.14
+      recency: 0.14
+      relevance: 0.25
+      corroboration: 0.13
+      contradiction: 0.05
+    contradiction_rules:
+      stronger_source_wins: true
+      require_manual_review_above: 0.25
+    aggregation:
+      max_signals_per_packet: 20
+      packet_priority_metric: overall_score

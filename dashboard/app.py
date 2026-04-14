@@ -22,13 +22,16 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-import yaml
 
+from src.analyzers import AnalyzerRegistry
+from src.configuration import load_signal_catalog
 from src.data import DataCache, FREDConnector, FileLoader, WorldBankConnector
+from src.data.health import source_health_snapshot
 from src.data.scraper import WebScraper
 from src.features import FeaturePipeline
-from src.models import ModelRegistry
 from src.outputs import ReportBuilder
+from src.pipeline import SignalPipelineEngine
+from src.signals import build_signal_packet_from_result
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.WARNING)
@@ -59,13 +62,7 @@ st.set_page_config(
 
 @st.cache_data(show_spinner=False)
 def load_config():
-    targets_path = PROJECT_ROOT / "config" / "targets.yaml"
-    sources_path = PROJECT_ROOT / "config" / "sources.yaml"
-    with open(targets_path) as f:
-        targets = yaml.safe_load(f)
-    with open(sources_path) as f:
-        sources = yaml.safe_load(f)
-    return targets, sources
+    return load_signal_catalog(PROJECT_ROOT)
 
 
 def build_cache() -> DataCache:
@@ -313,7 +310,7 @@ def run_prediction(target_cfg: dict, sources_cfg: dict, countries: list[str],
         return None, None, None
 
     # ── model ─────────────────────────────────────────────────────────────
-    registry = ModelRegistry()
+    registry = AnalyzerRegistry()
     result = registry.run(target_cfg, X, y, horizon=horizon)
     return result, X, wb_df if not wb_df.empty else fred_df
 
@@ -406,34 +403,37 @@ def _build_target_snippet_from_question(question: str, plan: dict) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", question.lower()).strip("_")
     slug = slug[:48] if slug else "new_question_target"
     return (
-        f"{slug}:\n"
-        f"  label: \"{question[:80]}\"\n"
-        f"  type: {plan['target_type']}\n"
-        f"  output_unit: \"custom\"\n"
-        f"  target_column: outcome_label\n"
-        f"  features:\n"
-        f"    economic: [feature_1, feature_2]\n"
-        f"    social: [feature_3]\n"
-        f"    market: [feature_4]\n"
-        f"  countries: [US]\n"
-        f"  date_range:\n"
-        f"    start: \"2018-01-01\"\n"
-        f"    end: \"today\"\n"
-        f"  model: {'arima' if plan['target_type'] == 'forecast' else 'random_forest'}\n"
-        f"  forecast_horizon: {plan['horizon']}\n"
+        f"signal_specs:\n"
+        f"  {slug}:\n"
+        f"    label: \"{question[:80]}\"\n"
+        f"    lane: opportunity\n"
+        f"    signal_kind: custom_signal\n"
+        f"    type: {plan['target_type']}\n"
+        f"    output_unit: \"custom\"\n"
+        f"    target_column: outcome_label\n"
+        f"    features:\n"
+        f"      economic: [feature_1, feature_2]\n"
+        f"      social: [feature_3]\n"
+        f"      market: [feature_4]\n"
+        f"    countries: [US]\n"
+        f"    date_range:\n"
+        f"      start: \"2018-01-01\"\n"
+        f"      end: \"today\"\n"
+        f"    model: {'arima' if plan['target_type'] == 'forecast' else 'random_forest'}\n"
+        f"    forecast_horizon: {plan['horizon']}\n"
     )
 
 
 # ─── sidebar ─────────────────────────────────────────────────────────────────
 
 def sidebar(targets_cfg: dict, sources_cfg: dict):
-    st.sidebar.header("Configuration")
+    st.sidebar.header("Signal Ops")
     simple_mode = st.sidebar.checkbox("Simple Mode (recommended)", value=True)
     decision_policy = st.sidebar.selectbox(
         "Decision Policy",
         ["Conservative", "Balanced", "Aggressive"],
         index=1,
-        help="Controls urgency and confidence thresholds for recommendations.",
+        help="Controls urgency and confidence thresholds for signal handling recommendations.",
     )
 
     if st.sidebar.button("Load Demo Data (one click)", use_container_width=True):
@@ -442,13 +442,15 @@ def sidebar(targets_cfg: dict, sources_cfg: dict):
 
     st.sidebar.divider()
 
-    target_names = list(targets_cfg["targets"].keys())
-    default_idx = target_names.index(targets_cfg.get("active_target", target_names[0]))
-    target_key = st.sidebar.selectbox("Prediction Target", target_names, index=default_idx)
-    target_cfg = targets_cfg["targets"][target_key]
+    target_names = list(targets_cfg["signal_specs"].keys())
+    default_idx = target_names.index(targets_cfg.get("active_signal_pack", target_names[0]))
+    target_key = st.sidebar.selectbox("Signal Pack", target_names, index=default_idx)
+    target_cfg = targets_cfg["signal_specs"][target_key]
     target_cfg["id"] = target_key
 
-    st.sidebar.markdown(f"**{target_cfg['label']}**  \n`{target_cfg['type']}`")
+    st.sidebar.markdown(
+        f"**{target_cfg['label']}**  \nLane: `{target_cfg.get('lane', 'opportunity')}`  \nAnalyzer: `{target_cfg['type']}`"
+    )
     st.sidebar.divider()
 
     all_countries = target_cfg.get("countries", ["US"])
@@ -474,8 +476,8 @@ def sidebar(targets_cfg: dict, sources_cfg: dict):
                 int(target_cfg.get("forecast_horizon", 12)),
             )
 
-    run = st.sidebar.button("▶ Run Prediction", type="primary", use_container_width=True)
-    run_all = st.sidebar.button("▶ Run All 4 Scaffold Targets", use_container_width=True)
+    run = st.sidebar.button("▶ Build Signal Packet", type="primary", use_container_width=True)
+    run_all = st.sidebar.button("▶ Build All 4 Scaffold Packets", use_container_width=True)
     return (
         target_cfg,
         countries,
@@ -496,7 +498,10 @@ def main():
 
     st.title("📊 SignalFactory")
     st.caption(
-        "Analyse economics, culture, and market factors to predict virtually anything."
+        "Ingest, normalize, score, and package lane-ready signals for LISA."
+    )
+    st.info(
+        "SignalFactory prepares scored evidence packets for LISA. It does not make final decisions on its own."
     )
 
     st.subheader("Autopilot (Hands-Off)")
@@ -506,7 +511,7 @@ def main():
             copied, skipped = _load_demo_templates()
             st.success(f"Demo data ready. Added {copied} files, kept {skipped} existing.")
     with col_b:
-        run_all_autopilot = st.button("2) Run All 4 Now", type="primary", use_container_width=True)
+        run_all_autopilot = st.button("2) Build All 4 Now", type="primary", use_container_width=True)
     with col_c:
         st.download_button(
             "3) Download Executive Summary",
@@ -519,22 +524,37 @@ def main():
     with col_d:
         do_everything = st.button("Do Everything For Me", use_container_width=True)
 
-    st.caption("Decision-grade mode: outputs include action, confidence, urgency, and timeframe.")
+    st.caption("Decision-grade mode: outputs include signal handling, confidence, urgency, timeframe, and LISA packet export.")
 
     targets_cfg, sources_cfg = load_config()
+    source_health = source_health_snapshot(sources_cfg)
+    with st.expander("Source Health", expanded=False):
+        source_rows = []
+        for source_name, info in source_health.get("sources", {}).items():
+            source_rows.append(
+                {
+                    "source": source_name,
+                    "enabled": info.get("enabled", False),
+                    "status": info.get("status", "unknown"),
+                    "details": ", ".join(
+                        f"{k}={v}" for k, v in info.items() if k not in {"enabled", "status"}
+                    ),
+                }
+            )
+        st.dataframe(pd.DataFrame(source_rows), use_container_width=True)
 
-    st.subheader("Ask A Question")
+    st.subheader("Ask For A Signal Readout")
     question = st.text_input(
-        "Type the prediction question you want answered",
-        placeholder="Example: Will construction material costs go up over the next 3 months?",
+        "Describe the signal you want surfaced",
+        placeholder="Example: Surface the construction cost direction signal for the next 3 months.",
     )
-    ask_now = st.button("Answer This Question", type="primary", use_container_width=True)
+    ask_now = st.button("Build Signal Readout", type="primary", use_container_width=True)
 
     if ask_now and question.strip():
         route = _route_question_to_target(question, targets_cfg)
         if route["status"] == "supported":
             key = route["target_key"]
-            cfg = dict(targets_cfg["targets"][key])
+            cfg = dict(targets_cfg["signal_specs"][key])
             cfg["id"] = key
             countries_q = cfg.get("countries", ["US"])
             start_year_q = int(cfg.get("date_range", {}).get("start", "2000")[:4])
@@ -555,13 +575,13 @@ def main():
             if result_q is not None:
                 conf_q = _estimate_confidence(result_q, cfg.get("type", ""))
                 decision_q = _decision_packet(key, result_q, _latest_decision_value(result_q), conf_q, "Balanced")
-                st.success("Question answered with existing model support.")
+                st.success("Signal readout assembled with existing analyzer support.")
                 st.write(_single_run_narrative(cfg, result_q, conf_q, decision_q, X_q))
             else:
-                st.warning("Question matched a target, but current data is insufficient to produce a result.")
+                st.warning("Question matched a signal pack, but current data is insufficient to assemble a signal.")
         else:
             needs = _question_needs_plan(question)
-            st.warning("This question is not covered yet. Here is exactly what is needed to answer it.")
+            st.warning("This question is not covered by the current signal packs. Here is what is needed to add it.")
             st.markdown(
                 f"**Recommended Model Type:** {needs['target_type']}  \n"
                 f"**Suggested Horizon:** {needs['horizon']} periods  \n"
@@ -575,7 +595,7 @@ def main():
                 st.write(f"- {f}")
 
             snippet = _build_target_snippet_from_question(question, needs)
-            st.write("Scaffold snippet to add when data is ready:")
+            st.write("Signal spec scaffold to add when data is ready:")
             st.code(snippet, language="yaml")
 
     (
@@ -590,7 +610,7 @@ def main():
         decision_policy,
     ) = sidebar(targets_cfg, sources_cfg)
 
-    st.info("Hands-off mode is available: load demo data, then click one run button.")
+    st.info("Hands-off mode is available: load demo data, then build one or more signal packets.")
     if _uploaded_data_count() == 0:
         st.warning("No uploaded datasets found yet.")
         if st.button("Prepare Demo Data Now", type="primary"):
@@ -627,11 +647,11 @@ def main():
 
     if not run and not run_all:
         st.info(
-            "👈 Select a prediction target in the sidebar and click **Run Prediction**.\n\n"
-            "**Available targets:**\n" +
+            "👈 Select a signal pack in the sidebar and click **Build Signal Packet**.\n\n"
+            "**Available signal packs:**\n" +
             "\n".join(
                 f"- `{k}` — {v['label']} ({v['type']})"
-                for k, v in targets_cfg["targets"].items()
+                for k, v in targets_cfg["signal_specs"].items()
             )
         )
         _show_upload_panel()
@@ -676,8 +696,8 @@ def main():
         st.subheader("Natural Language Brief")
         st.write(_single_run_narrative(target_cfg, result, confidence, decision, X))
 
-    st.subheader("Prediction Market Decision Card")
-    st.caption("Use this to turn model output into an actionable YES/NO trade plan.")
+    st.subheader("LISA Decision Support Card")
+    st.caption("Use this to turn a scored signal into an operator-facing handling plan. LISA remains the downstream decision layer.")
     mk_col1, mk_col2, mk_col3 = st.columns(3)
     with mk_col1:
         market_yes_cents = st.number_input(
@@ -716,9 +736,9 @@ def main():
     )
     st.info(card["narrative"])
 
-    tabs = st.tabs(["Predictions", "Feature Importance", "Raw Data", "Metrics", "Export"])
+    tabs = st.tabs(["Signal Output", "Feature Importance", "Raw Data", "Metrics", "Exports"])
 
-    # ── Predictions tab ───────────────────────────────────────────────────
+    # ── Signal output tab ────────────────────────────────────────────────
     with tabs[0]:
         if result.forecast is not None:
             _plot_forecast(result)
@@ -773,6 +793,16 @@ def main():
     with tabs[4]:
         report = ReportBuilder(str(PROJECT_ROOT / "data" / "reports"))
         json_data = json.dumps(report.to_dict(result), indent=2, default=str)
+        lane_cfg = targets_cfg.get("lanes", {}).get(target_cfg.get("lane", "opportunity"), {})
+        pipeline_trace = _build_pipeline_trace(target_cfg, raw_df, lane_cfg)
+        lisa_packet = build_signal_packet_from_result(
+            target_cfg,
+            result,
+            raw_df=raw_df,
+            lane_cfg=lane_cfg,
+        )
+        lisa_packet_data = json.dumps(lisa_packet, indent=2, default=str)
+        pipeline_trace_data = json.dumps(pipeline_trace, indent=2, default=str)
         conf_for_export = _estimate_confidence(result, target_cfg.get("type", ""))
         decision_for_export = _decision_packet(
             target_cfg.get("id", ""), result, latest, conf_for_export, decision_policy
@@ -785,16 +815,16 @@ def main():
             X,
         )
         st.download_button(
-            "⬇ Download JSON Report",
+            "⬇ Download Analyzer JSON Report",
             data=json_data,
             file_name=f"{target_cfg['id']}_report.json",
             mime="application/json",
         )
         csv_data = result.predictions.to_csv()
         st.download_button(
-            "⬇ Download Predictions CSV",
+            "⬇ Download Signal Values CSV",
             data=csv_data,
-            file_name=f"{target_cfg['id']}_predictions.csv",
+            file_name=f"{target_cfg['id']}_signal_values.csv",
             mime="text/csv",
         )
         st.download_button(
@@ -803,18 +833,43 @@ def main():
             file_name=f"{target_cfg['id']}_brief.txt",
             mime="text/plain",
         )
+        st.download_button(
+            "⬇ Download LISA Lane Packet",
+            data=lisa_packet_data,
+            file_name=f"{target_cfg['id']}_lisa_packet.json",
+            mime="application/json",
+        )
+        st.download_button(
+            "⬇ Download Pipeline Trace",
+            data=pipeline_trace_data,
+            file_name=f"{target_cfg['id']}_pipeline_trace.json",
+            mime="application/json",
+        )
+
+
+def _build_pipeline_trace(target_cfg: dict, raw_df: pd.DataFrame, lane_cfg: dict) -> dict:
+    engine = SignalPipelineEngine(lane_cfg=lane_cfg)
+    if raw_df is None or raw_df.empty:
+        return engine.run(target_cfg, wb_df=pd.DataFrame(), fred_df=pd.DataFrame(), extra_dfs=[])
+
+    columns = set(raw_df.columns)
+    if "country" in columns and "year" in columns:
+        return engine.run(target_cfg, wb_df=raw_df, fred_df=pd.DataFrame(), extra_dfs=[])
+    if "date" in columns:
+        return engine.run(target_cfg, wb_df=pd.DataFrame(), fred_df=raw_df, extra_dfs=[])
+    return engine.run(target_cfg, wb_df=pd.DataFrame(), fred_df=pd.DataFrame(), extra_dfs=[raw_df])
 
 
 def _run_all_scaffold_targets(targets_cfg: dict, sources_cfg: dict, decision_policy: str = "Balanced"):
-    st.subheader("Batch Run: All 4 Scaffold Targets")
+    st.subheader("Batch Build: All 4 Scaffold Signal Packs")
 
-    available = [k for k in SCAFFOLD_TARGET_KEYS if k in targets_cfg["targets"]]
-    missing = [k for k in SCAFFOLD_TARGET_KEYS if k not in targets_cfg["targets"]]
+    available = [k for k in SCAFFOLD_TARGET_KEYS if k in targets_cfg["signal_specs"]]
+    missing = [k for k in SCAFFOLD_TARGET_KEYS if k not in targets_cfg["signal_specs"]]
 
     if missing:
-        st.warning("Some scaffold targets are missing: " + ", ".join(missing))
+        st.warning("Some scaffold signal packs are missing: " + ", ".join(missing))
     if not available:
-        st.error("No scaffold targets found in configuration.")
+        st.error("No scaffold signal packs found in configuration.")
         return
 
     rows = []
@@ -822,7 +877,7 @@ def _run_all_scaffold_targets(targets_cfg: dict, sources_cfg: dict, decision_pol
     report_builder = ReportBuilder(str(PROJECT_ROOT / "data" / "reports"))
 
     for key in available:
-        cfg = dict(targets_cfg["targets"][key])
+        cfg = dict(targets_cfg["signal_specs"][key])
         cfg["id"] = key
 
         countries = cfg.get("countries", ["US"])
@@ -903,7 +958,7 @@ def _run_all_scaffold_targets(targets_cfg: dict, sources_cfg: dict, decision_pol
     st.dataframe(summary_df, use_container_width=True)
 
     ok_count = int((summary_df["status"] == "ok").sum()) if not summary_df.empty else 0
-    st.caption(f"Completed {ok_count}/{len(available)} targets successfully.")
+    st.caption(f"Completed {ok_count}/{len(available)} scaffold signal packets successfully.")
 
     st.subheader("What This Means")
     if summary_df.empty:
@@ -1062,7 +1117,7 @@ def _run_all_scaffold_targets(targets_cfg: dict, sources_cfg: dict, decision_pol
 # ─── plot helpers ─────────────────────────────────────────────────────────────
 
 def _plot_forecast(result):
-    st.subheader("Historical Fit + Forecast")
+    st.subheader("Historical Signal Fit + Forecast Support")
     fitted = result.predictions.reset_index()
     fitted.columns = ["period", "value"]
     fitted["kind"] = "fitted"
@@ -1090,15 +1145,15 @@ def _plot_forecast(result):
 
 
 def _plot_probabilities(result):
-    st.subheader("Class Probabilities Over Time")
+    st.subheader("Signal Class Probabilities Over Time")
     proba = result.probabilities.reset_index()
     date_col = proba.columns[0]
     proba_melted = proba.melt(id_vars=date_col, var_name="Class", value_name="Probability")
     fig = px.line(proba_melted, x=date_col, y="Probability", color="Class",
-                  title="Predicted Class Probabilities")
+                  title="Signal Class Probabilities")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Latest Prediction")
+    st.subheader("Latest Signal Readout")
     latest_proba = result.probabilities.iloc[-1]
     fig2 = px.bar(
         x=latest_proba.index, y=latest_proba.values,
@@ -1109,12 +1164,12 @@ def _plot_probabilities(result):
 
 
 def _plot_regression(result):
-    st.subheader("Predictions Over Time")
+    st.subheader("Signal Values Over Time")
     preds = result.predictions.reset_index()
-    preds.columns = ["period", "prediction"]
-    fig = px.line(preds, x="period", y="prediction",
-                  title=f"{result.target_label} — Predicted Values",
-                  labels={"prediction": result.target_label})
+    preds.columns = ["period", "signal_value"]
+    fig = px.line(preds, x="period", y="signal_value",
+                  title=f"{result.target_label} — Signal Values",
+                  labels={"signal_value": result.target_label})
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -1123,7 +1178,7 @@ def _show_upload_panel():
     st.subheader("📁 Upload Your Own Data")
     st.markdown(
         "Drop CSV, Excel, or Parquet files into `data/uploads/` — they will be "
-        "automatically detected and merged with the feature pipeline."
+        "automatically detected and merged into the signal assembly pipeline."
     )
     with st.expander("Upload a file now"):
         uploaded = st.file_uploader(
@@ -1139,8 +1194,8 @@ def _show_upload_panel():
 
 def _format_prediction_value(value):
     if isinstance(value, float):
-        return f"latest prediction is {value:.2f}"
-    return f"latest prediction is {value}"
+        return f"latest signal value is {value:.2f}"
+    return f"latest signal value is {value}"
 
 
 def _recommendation_for_target(target_key: str, prediction):
@@ -1194,7 +1249,7 @@ def _estimate_confidence(result, target_type: str) -> float:
 
 
 def _estimate_market_probability(target_key: str, result) -> float:
-    """Return an estimated YES probability for prediction-market style decisions."""
+    """Return an estimated YES probability for signal-driven market decisions."""
     if result.probabilities is not None and not result.probabilities.empty:
         latest = result.probabilities.iloc[-1]
         lc = {str(k).lower(): float(v) for k, v in latest.items()}
@@ -1360,11 +1415,11 @@ def _single_run_narrative(target_cfg: dict, result, confidence: float, decision:
 
 def _batch_narrative(summary_df: pd.DataFrame, validation: dict) -> str:
     if summary_df.empty:
-        return "No target outputs were generated in this batch."
+        return "No signal outputs were generated in this batch."
 
     ok_count = int((summary_df["status"] == "ok").sum())
     lines = [
-        f"Batch narrative: {ok_count}/{len(summary_df)} targets completed successfully.",
+        f"Batch narrative: {ok_count}/{len(summary_df)} signal packs completed successfully.",
         f"Current deployment mode is {'Paper Mode' if validation.get('paper_only', True) else 'Limited Live Mode'}.",
         f"4-week tracked hit rate is {validation.get('hit_rate_4w', 0.0) * 100:.0f}% over {validation.get('rows_4w', 0)} outcomes.",
     ]

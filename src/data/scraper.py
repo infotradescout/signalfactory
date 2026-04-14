@@ -10,7 +10,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_UA = "Mozilla/5.0 (compatible; PredictiveSystem/1.0)"
+_DEFAULT_UA = "Mozilla/5.0 (compatible; SignalFactory/1.0; LISA-ingestion)"
 _TIMEOUT = 15  # seconds
 
 

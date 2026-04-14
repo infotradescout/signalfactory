@@ -43,7 +43,7 @@ database:
 
 web_scraper:
   enabled: true
-  user_agent: "Mozilla/5.0 (compatible; PredictiveSystem/1.0)"
+  user_agent: "Mozilla/5.0 (compatible; SignalFactory/1.0; LISA-ingestion)"
   sources:
     news_sentiment:
       url: "https://www.reddit.com/r/economics/.json"
