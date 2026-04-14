@@ -49,7 +49,7 @@ SCAFFOLD_TEMPLATE_FILES = {
 
 # ─── page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="SignalFoundry",
+    page_title="SignalFactory",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -494,7 +494,7 @@ def sidebar(targets_cfg: dict, sources_cfg: dict):
 def main():
     _init_state()
 
-    st.title("📊 SignalFoundry")
+    st.title("📊 SignalFactory")
     st.caption(
         "Analyse economics, culture, and market factors to predict virtually anything."
     )

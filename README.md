@@ -1,4 +1,4 @@
-# SignalFoundry
+# SignalFactory
 
 A general-purpose predictive framework that pulls **economics, cultural, market, and social data** from multiple sources and runs ML/time-series models to predict anything you configure.
 
