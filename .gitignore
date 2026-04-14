@@ -1,0 +1,34 @@
+# Python cache/build
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local env / secrets
+.env
+*.env
+
+# Runtime outputs
+data/cache/store.db
+data/models/
+data/reports/
+data/uploads/
+
+# Notebooks/checkpoints
+.ipynb_checkpoints/

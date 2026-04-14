@@ -1,0 +1,160 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# prediction targets.yaml
+#
+# Each target block defines ONE thing you want to predict.
+# Switch targets by changing `active_target` at the bottom of this file.
+# ─────────────────────────────────────────────────────────────────────────────
+
+targets:
+
+  gdp_growth:
+    label: "GDP Growth Rate"
+    type: regression          # regression | classification | forecast
+    output_unit: "% YoY"
+    features:
+      economic: [inflation, unemployment, interest_rate, trade_balance, m2_money_supply]
+      social:   [population_growth, education_index, government_stability]
+      market:   [stock_index_return, commodity_prices]
+    countries: [US, CN, DE, GB, JP, IN, BR]
+    date_range:
+      start: "2000-01-01"
+      end:   "today"
+    model: gradient_boosting
+
+  inflation_forecast:
+    label: "Inflation Rate (12-month forecast)"
+    type: forecast
+    output_unit: "%"
+    features:
+      economic: [m2_money_supply, interest_rate, unemployment, oil_price, ppi]
+      market:   [commodity_prices, exchange_rate]
+    countries: [US]
+    date_range:
+      start: "1990-01-01"
+      end:   "today"
+    model: arima
+    forecast_horizon: 12     # months ahead
+
+  market_trend:
+    label: "Stock Market Direction"
+    type: classification
+    classes: [up, flat, down]
+    output_unit: "probability per class"
+    features:
+      economic: [gdp_growth, inflation, interest_rate, unemployment, consumer_confidence]
+      market:   [pe_ratio, earnings_growth, volatility_index]
+      social:   [news_sentiment]
+    countries: [US]
+    date_range:
+      start: "2000-01-01"
+      end:   "today"
+    model: random_forest
+
+  election_outcome:
+    label: "Election Outcome (incumbent win probability)"
+    type: classification
+    classes: [incumbent_wins, challenger_wins]
+    output_unit: "probability"
+    features:
+      economic: [gdp_growth, unemployment, inflation, disposable_income_growth]
+      social:   [approval_rating, incumbent_term, polarization_index]
+    countries: [US]
+    date_range:
+      start: "1948-01-01"
+      end:   "today"
+    model: logistic_regression
+
+  business_viability:
+    label: "Business Viability Score"
+    type: regression
+    output_unit: "score 0-100"
+    features:
+      economic: [gdp_growth, interest_rate, consumer_spending, credit_availability]
+      social:   [demographic_trend, urbanization, education_index]
+      market:   [sector_growth, competition_index, labor_cost]
+    countries: [US]
+    date_range:
+      start: "2005-01-01"
+      end:   "today"
+    model: ensemble
+
+  social_unrest_risk:
+    label: "Social Unrest Risk Level"
+    type: classification
+    classes: [low, medium, high]
+    output_unit: "risk tier"
+    features:
+      economic: [unemployment, inflation, inequality_index, poverty_rate]
+      social:   [political_rights_index, press_freedom, youth_unemployment, urbanization]
+    countries: [US, CN, DE, GB, BR, IN, RU]
+    date_range:
+      start: "2000-01-01"
+      end:   "today"
+    model: gradient_boosting
+
+  food_demand_weekly:
+    label: "Food Demand Forecast (Weekly Units)"
+    type: forecast
+    output_unit: "units/week"
+    target_column: food_sales_units
+    features:
+      economic: [food_sales_units, cpi_food, unemployment, disposable_income_growth]
+      social:   [holiday_flag, event_flag]
+      market:   [promo_spend, fuel_price]
+    countries: [US]
+    date_range:
+      start: "2018-01-01"
+      end:   "today"
+    model: arima
+    forecast_horizon: 8
+
+  construction_material_cost_direction:
+    label: "Construction Material Cost Direction"
+    type: classification
+    classes: [down, flat, up]
+    output_unit: "class probability"
+    target_column: material_cost_direction
+    features:
+      economic: [interest_rate, inflation, ppi, exchange_rate]
+      market:   [steel_price, lumber_price, cement_price, diesel_price]
+      social:   [demand_pressure_index]
+    countries: [US]
+    date_range:
+      start: "2015-01-01"
+      end:   "today"
+    model: random_forest
+
+  restaurant_failure_risk:
+    label: "Restaurant Failure Risk"
+    type: classification
+    classes: [low, medium, high]
+    output_unit: "risk tier"
+    target_column: failure_risk_class
+    features:
+      economic: [rent_to_revenue_ratio, food_cost_ratio, labor_cost_ratio]
+      social:   [local_population_growth, review_score, foot_traffic_index]
+      market:   [competition_density, nearby_openings_12m]
+    countries: [US]
+    date_range:
+      start: "2017-01-01"
+      end:   "today"
+    model: gradient_boosting
+
+  construction_project_delay_risk:
+    label: "Construction Project Delay Risk"
+    type: classification
+    classes: [on_time, minor_delay, major_delay]
+    output_unit: "delay class probability"
+    target_column: delay_risk_class
+    features:
+      economic: [material_cost_change_pct, labor_shortage_index, interest_rate]
+      social:   [permit_delay_days, weather_disruption_days]
+      market:   [subcontractor_availability, backlog_index]
+    countries: [US]
+    date_range:
+      start: "2016-01-01"
+      end:   "today"
+    model: random_forest
+
+# ─── SET THIS TO CHOOSE WHAT TO PREDICT ──────────────────────────────────────
+active_target: food_demand_weekly

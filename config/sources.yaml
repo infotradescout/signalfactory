@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# sources.yaml — configure each data source
+# ─────────────────────────────────────────────────────────────────────────────
+
+world_bank:
+  enabled: true
+  cache_days: 7
+  indicators:
+    gdp_growth:         "NY.GDP.MKTP.KD.ZG"
+    inflation:          "FP.CPI.TOTL.ZG"
+    unemployment:       "SL.UEM.TOTL.ZS"
+    trade_balance:      "BN.CAB.XOKA.GD.ZS"
+    population_growth:  "SP.POP.GROW"
+    education_index:    "SE.XPD.TOTL.GD.ZS"
+    poverty_rate:       "SI.POV.DDAY"
+    inequality_index:   "SI.POV.GINI"
+    youth_unemployment: "SL.UEM.1524.ZS"
+    urbanization:       "SP.URB.TOTL.IN.ZS"
+    consumer_spending:  "NE.CON.PRVT.KD.ZG"
+    disposable_income_growth: "NY.ADJ.NNTY.PC.KD.ZG"
+
+fred:
+  enabled: true           # requires FRED_API_KEY in .env
+  cache_days: 1
+  series:
+    interest_rate:        "FEDFUNDS"
+    m2_money_supply:      "M2SL"
+    consumer_confidence:  "UMCSENT"
+    ppi:                  "PPIACO"
+    oil_price:            "DCOILWTICO"
+    volatility_index:     "VIXCLS"
+    credit_availability:  "DPSACBW027SBOG"
+    labor_cost:           "COMPNFB"
+    exchange_rate:        "DEXUSEU"
+
+csv:
+  enabled: true
+  directory: "data/uploads"   # drop your CSV/Excel files here
+
+database:
+  enabled: true
+  path: "data/cache/store.db"
+
+web_scraper:
+  enabled: true
+  user_agent: "Mozilla/5.0 (compatible; PredictiveSystem/1.0)"
+  sources:
+    news_sentiment:
+      url: "https://www.reddit.com/r/economics/.json"
+      type: reddit_json
