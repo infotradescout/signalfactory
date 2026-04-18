@@ -172,4 +172,59 @@ signal_specs:
     model: random_forest
     consumer: LISA
 
+  ai_ad_placement_readiness:
+    label: "AI Ad Placement Readiness Signal"
+    lane: presence
+    signal_kind: ai_placement_readiness
+    type: classification
+    classes: [not_ready, partial, ready, dominant]
+    output_unit: "readiness tier"
+    target_column: placement_readiness_class
+    features:
+      digital: [listing_completeness, review_count, review_velocity, photo_count, qa_pairs_answered]
+      behavioral: [search_impression_share, click_through_rate, map_pack_appearances]
+      competitive: [competitor_count_nearby, competitor_avg_rating, presence_gap_score]
+    countries: [US]
+    date_range:
+      start: "2022-01-01"
+      end: "today"
+    model: gradient_boosting
+    consumer: LISA
+  local_business_intent_surge:
+    label: "Local Business Intent Surge Signal"
+    lane: presence
+    signal_kind: intent_demand_monitor
+    type: forecast
+    output_unit: "intent index"
+    target_column: local_intent_index
+    features:
+      behavioral: [search_volume_local, near_me_query_rate, ai_referral_rate, voice_search_rate]
+      economic: [consumer_spending, unemployment, disposable_income_growth]
+      social: [population_growth, urbanization]
+    countries: [US]
+    date_range:
+      start: "2020-01-01"
+      end: "today"
+    model: arima
+    forecast_horizon: 8
+    consumer: LISA
+  presence_gap_opportunity:
+    label: "Presence Gap Opportunity Signal"
+    lane: presence
+    signal_kind: opportunity_scanner
+    type: classification
+    classes: [low, medium, high, critical]
+    output_unit: "opportunity tier"
+    target_column: gap_opportunity_class
+    features:
+      competitive: [unverified_listing_rate, avg_competitor_reviews, category_saturation_index]
+      behavioral: [zero_click_rate, ai_answer_coverage, organic_ctr_by_category]
+      economic: [consumer_spending, gdp_growth]
+    countries: [US]
+    date_range:
+      start: "2021-01-01"
+      end: "today"
+    model: random_forest
+    consumer: LISA
+
 active_signal_pack: food_demand_weekly
